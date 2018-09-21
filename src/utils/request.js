@@ -76,15 +76,15 @@ function request(url, type, withCredentials, headers) {
 
 	function handler() {
 		console.log(this);
-		const  getResponseData = () => {
-
-			if(this.responseType == "arraybuffer") return this.response;
+		const  getResponseData = (_resp) => {
+			const response = _resp? _resp: this.response;
+			if(this.responseType == "arraybuffer") return response;
 
 			const settings = window.sharedSettings;
 			if(settings && settings.decryptionKey){
-				return  decrypt(window.sharedSettings.decryptionKey,this.response);
+				return  decrypt(window.sharedSettings.decryptionKey,response);
 			}
-			return this.response;
+			return response;
 		};
 
 		if (this.readyState === XMLHttpRequest.DONE) {
@@ -118,7 +118,7 @@ function request(url, type, withCredentials, headers) {
 
 				if(responseXML){
 					console.log("responseXML", this.responseXML);
-					r = this.responseXML;
+					r = getResponseData(this.responseXML);
 				} else
 				if(isXml(type)){
 					// xhr.overrideMimeType("text/xml"); // for OPF parsing

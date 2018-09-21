@@ -104,6 +104,7 @@ class Archive {
 	 * @return {any} the parsed result
 	 */
 	handleResponse(_response, type){
+		console.log("archive handle response", _response, type);
 		const  decryptResponse = (resp) => {
 			const settings = window.sharedSettings;
 			if(settings && settings.decryptionKey){
@@ -113,6 +114,7 @@ class Archive {
 		};
 
 		const response = decryptResponse(_response);
+		console.log("archive decypted ", response);
 
 		var r;
 
@@ -144,6 +146,7 @@ class Archive {
 	 * @return {Blob}
 	 */
 	getBlob(url, mimeType){
+		console.log("get blob from archive", url,mimeType);
 		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 		var entry = this.zip.file(decodededUrl);
 
@@ -162,13 +165,18 @@ class Archive {
 	 * @return {string}
 	 */
 	getText(url, encoding){
+		console.log("get text from archive", url, encoding);
 		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
+		console.log("decoded url", decodededUrl,this.zip);
 		var entry = this.zip.file(decodededUrl);
-
+		console.log(entry);
 		if(entry) {
 			return entry.async("string").then(function(text) {
+				console.log("text from archive", text);
 				return text;
 			});
+		} else {
+			throw new Error("[Archive] File not found url : ", url);
 		}
 	}
 
@@ -179,6 +187,7 @@ class Archive {
 	 * @return {string} base64 encoded
 	 */
 	getBase64(url, mimeType){
+		console.log("get base64 from archive",url,mimeType);
 		var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 		var entry = this.zip.file(decodededUrl);
 

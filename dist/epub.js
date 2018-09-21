@@ -6047,15 +6047,15 @@ function request(url, type, withCredentials, headers) {
 		var _this = this;
 
 		console.log(this);
-		var getResponseData = function getResponseData() {
-
-			if (_this.responseType == "arraybuffer") return _this.response;
+		var getResponseData = function getResponseData(_resp) {
+			var response = _resp ? _resp : _this.response;
+			if (_this.responseType == "arraybuffer") return response;
 
 			var settings = window.sharedSettings;
 			if (settings && settings.decryptionKey) {
-				return (0, _decrypt.decrypt)(window.sharedSettings.decryptionKey, _this.response);
+				return (0, _decrypt.decrypt)(window.sharedSettings.decryptionKey, response);
 			}
-			return _this.response;
+			return response;
 		};
 
 		if (this.readyState === XMLHttpRequest.DONE) {
@@ -6090,7 +6090,7 @@ function request(url, type, withCredentials, headers) {
 
 				if (responseXML) {
 					console.log("responseXML", this.responseXML);
-					r = this.responseXML;
+					r = getResponseData(this.responseXML);
 				} else if ((0, _core.isXml)(type)) {
 					// xhr.overrideMimeType("text/xml"); // for OPF parsing
 					// If this.responseXML wasn't set, try to parse using a DOMParser from text
@@ -25216,6 +25216,7 @@ var Archive = function () {
 	}, {
 		key: "handleResponse",
 		value: function handleResponse(_response, type) {
+			console.log("archive handle response", _response, type);
 			var decryptResponse = function decryptResponse(resp) {
 				var settings = window.sharedSettings;
 				if (settings && settings.decryptionKey) {
@@ -25225,6 +25226,7 @@ var Archive = function () {
 			};
 
 			var response = decryptResponse(_response);
+			console.log("archive decypted ", response);
 
 			var r;
 
@@ -25253,6 +25255,7 @@ var Archive = function () {
 	}, {
 		key: "getBlob",
 		value: function getBlob(url, mimeType) {
+			console.log("get blob from archive", url, mimeType);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 			var entry = this.zip.file(decodededUrl);
 
@@ -25274,13 +25277,18 @@ var Archive = function () {
 	}, {
 		key: "getText",
 		value: function getText(url, encoding) {
+			console.log("get text from archive", url, encoding);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
+			console.log("decoded url", decodededUrl, this.zip);
 			var entry = this.zip.file(decodededUrl);
-
+			console.log(entry);
 			if (entry) {
 				return entry.async("string").then(function (text) {
+					console.log("text from archive", text);
 					return text;
 				});
+			} else {
+				throw new Error("[Archive] File not found url : ", url);
 			}
 		}
 
@@ -25294,6 +25302,7 @@ var Archive = function () {
 	}, {
 		key: "getBase64",
 		value: function getBase64(url, mimeType) {
+			console.log("get base64 from archive", url, mimeType);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 			var entry = this.zip.file(decodededUrl);
 
