@@ -3,6 +3,8 @@ import request from "./utils/request";
 import mime from "../libs/mime/mime";
 import Path from "./utils/path";
 
+import { decrypt } from "./utils/decrypt";
+
 /**
  * Handles Unzipping a requesting files from an Epub Archive
  * @class
@@ -101,7 +103,17 @@ class Archive {
 	 * @param  {string} [type]
 	 * @return {any} the parsed result
 	 */
-	handleResponse(response, type){
+	handleResponse(_response, type){
+		const  decryptResponse = (resp) => {
+			const settings = window.sharedSettings;
+			if(settings && settings.decryptionKey){
+				return  decrypt(window.sharedSettings.decryptionKey,resp);
+			}
+			return resp;
+		};
+
+		const response = decryptResponse(_response);
+
 		var r;
 
 		if(type == "json") {

@@ -1,6 +1,8 @@
 import {defer, isXml, parse} from "./core";
 import Path from "./path";
 
+import { decrypt } from "./decrypt";
+
 function request(url, type, withCredentials, headers) {
 	var supportsURL = (typeof window != "undefined") ? window.URL : false; // TODO: fallback for url if window isn't defined
 	var BLOB_RESPONSE = supportsURL ? "blob" : "arraybuffer";
@@ -73,6 +75,18 @@ function request(url, type, withCredentials, headers) {
 	}
 
 	function handler() {
+		console.log(this);
+		const  getResponseData = () => {
+
+			if(this.responseType == "arraybuffer") return this.response;
+
+			const settings = window.sharedSettings;
+			if(settings && settings.decryptionKey){
+				return  decrypt(window.sharedSettings.decryptionKey,this.response);
+			}
+			return this.response;
+		};
+
 		if (this.readyState === XMLHttpRequest.DONE) {
 			var responseXML = false;
 
@@ -101,34 +115,35 @@ function request(url, type, withCredentials, headers) {
 					});
 					return deferred.promise;
 				}
+
 				if(responseXML){
+					console.log("responseXML", this.responseXML);
 					r = this.responseXML;
 				} else
 				if(isXml(type)){
 					// xhr.overrideMimeType("text/xml"); // for OPF parsing
 					// If this.responseXML wasn't set, try to parse using a DOMParser from text
-					r = parse(this.response, "text/xml");
+					r = parse(getResponseData(), "text/xml");
 				}else
 				if(type == "xhtml"){
-					r = parse(this.response, "application/xhtml+xml");
+					r = parse(getResponseData(), "application/xhtml+xml");
 				}else
 				if(type == "html" || type == "htm"){
-					r = parse(this.response, "text/html");
+					r = parse(getResponseData(), "text/html");
 				}else
 				if(type == "json"){
-					r = JSON.parse(this.response);
+					r = JSON.parse(getResponseData());
 				}else
 				if(type == "blob"){
-
 					if(supportsURL) {
-						r = this.response;
+						r = getResponseData();
 					} else {
 						//-- Safari doesn't support responseType blob, so create a blob from arraybuffer
-						r = new Blob([this.response]);
+						r = new Blob([getResponseData()]);
 					}
 
 				}else{
-					r = this.response;
+					r = getResponseData();
 				}
 
 				deferred.resolve(r);
