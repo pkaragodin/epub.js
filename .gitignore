@@ -6,7 +6,5 @@ components
 node_modules
 bower_components
 books
-lib
-dist
 documentation/html
 types/*.js
