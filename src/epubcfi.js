@@ -332,7 +332,7 @@ class EpubCFI {
 
 	/**
 	 * Compare which of two CFIs is earlier in the text
-	 * @returns {number} First is earlier = 1, Second is earlier = -1, They are equal = 0
+	 * @returns {number} First is earlier = -1, Second is earlier = 1, They are equal = 0
 	 */
 	compare(cfiOne, cfiTwo) {
 		var stepsA, stepsB;
@@ -392,7 +392,7 @@ class EpubCFI {
 
 		// All steps in First equal to Second and First is Less Specific
 		if(stepsA.length < stepsB.length) {
-			return 1;
+			return -1;
 		}
 
 		// Compare the charecter offset of the text node

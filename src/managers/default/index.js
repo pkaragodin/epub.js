@@ -119,7 +119,8 @@ class DefaultViewManager {
 			scroller = window;
 		}
 
-		scroller.addEventListener("scroll", this.onScroll.bind(this));
+		this._onScroll = this.onScroll.bind(this);
+		scroller.addEventListener("scroll", this._onScroll);
 	}
 
 	removeEventListeners(){
@@ -131,7 +132,8 @@ class DefaultViewManager {
 			scroller = window;
 		}
 
-		scroller.removeEventListener("scroll", this.onScroll.bind(this));
+		scroller.removeEventListener("scroll", this._onScroll);
+		this._onScroll = undefined;
 	}
 
 	destroy(){
@@ -281,7 +283,8 @@ class DefaultViewManager {
 			.then(function(){
 				var next;
 				if (this.layout.name === "pre-paginated" &&
-						this.layout.divisor > 1) {
+						this.layout.divisor > 1 && section.index > 0) {
+					// First page (cover) should stand alone for pre-paginated books
 					next = section.next();
 					if (next) {
 						return this.add(next);
@@ -457,7 +460,7 @@ class DefaultViewManager {
 						}
 					}
 				}.bind(this), (err) => {
-					displaying.reject(err);
+					return err;
 				})
 				.then(function(){
 					this.views.show();
@@ -529,7 +532,7 @@ class DefaultViewManager {
 						}
 					}
 				}.bind(this), (err) => {
-					displaying.reject(err);
+					return err;
 				})
 				.then(function(){
 					if(this.isPaginated && this.settings.axis === "horizontal") {
@@ -892,7 +895,7 @@ class DefaultViewManager {
 		}
 	}
 
-	updateFlow(flow){
+	updateFlow(flow, defaultScrolledOverflow="auto"){
 		let isPaginated = (flow === "paginated" || flow === "auto");
 
 		this.isPaginated = isPaginated;
@@ -901,18 +904,19 @@ class DefaultViewManager {
 				flow === "scrolled-continuous" ||
 				flow === "scrolled") {
 			this.updateAxis("vertical");
+		} else {
+			this.updateAxis("horizontal");
 		}
 
 		this.viewSettings.flow = flow;
 
 		if (!this.settings.overflow) {
-			this.overflow = isPaginated ? "hidden" : "auto";
+			this.overflow = isPaginated ? "hidden" : defaultScrolledOverflow;
 		} else {
 			this.overflow = this.settings.overflow;
 		}
-		// this.views.forEach(function(view){
-		// 	view.setAxis(axis);
-		// });
+
+		this.stage && this.stage.overflow(this.overflow);
 
 		this.updateLayout();
 

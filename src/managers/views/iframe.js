@@ -102,7 +102,6 @@ class IframeView {
 
 		this.element.setAttribute("ref", this.index);
 
-		this.element.appendChild(this.iframe);
 		this.added = true;
 
 		this.elementBounds = bounds(this.element);
@@ -277,12 +276,12 @@ class IframeView {
 			}
 
 			if (this.settings.forceEvenPages) {
-				columns = (width / this.layout.delta);
+				columns = (width / this.layout.pageWidth);
 				if ( this.layout.divisor > 1 &&
 						 this.layout.name === "reflowable" &&
 						(columns % 2 > 0)) {
 					// add a blank page
-					width += this.layout.gap + this.layout.columnWidth;
+					width += this.layout.pageWidth;
 				}
 			}
 
@@ -327,6 +326,16 @@ class IframeView {
 
 		this.pane && this.pane.render();
 
+		requestAnimationFrame(() => {
+			let mark;
+			for (let m in this.marks) {
+				if (this.marks.hasOwnProperty(m)) {
+					mark = this.marks[m];
+					this.placeMark(mark.element, mark.range);
+				}
+			}
+		});
+
 		this.onResize(this, size);
 
 		this.emit(EVENTS.VIEWS.RESIZED, size);
@@ -356,9 +365,13 @@ class IframeView {
 		if (this.settings.method === "blobUrl") {
 			this.blobUrl = createBlobUrl(contents, "application/xhtml+xml");
 			this.iframe.src = this.blobUrl;
+			this.element.appendChild(this.iframe);
 		} else if(this.settings.method === "srcdoc"){
 			this.iframe.srcdoc = contents;
+			this.element.appendChild(this.iframe);
 		} else {
+
+			this.element.appendChild(this.iframe);
 
 			this.document = this.iframe.contentDocument;
 
@@ -614,7 +627,6 @@ class IframeView {
 	}
 
 	mark(cfiRange, data={}, cb) {
-
 		if (!this.contents) {
 			return;
 		}
@@ -643,33 +655,9 @@ class IframeView {
 			range.selectNodeContents(parent);
 		}
 
-		let top, right, left;
-
-		if(this.layout.name === "pre-paginated" ||
-			this.settings.axis !== "horizontal") {
-			let pos = range.getBoundingClientRect();
-			top = pos.top;
-			right = pos.right;
-		} else {
-			// Element might break columns, so find the left most element
-			let rects = range.getClientRects();
-			let rect;
-			for (var i = 0; i != rects.length; i++) {
-				rect = rects[i];
-				if (!left || rect.left < left) {
-					left = rect.left;
-					right = left + this.layout.columnWidth - this.layout.gap;
-					top = rect.top;
-				}
-			}
-		}
-
-
 		let mark = this.document.createElement("a");
 		mark.setAttribute("ref", "epubjs-mk");
 		mark.style.position = "absolute";
-		mark.style.top = `${top}px`;
-		mark.style.left = `${right}px`;
 
 		mark.dataset["epubcfi"] = cfiRange;
 
@@ -687,11 +675,41 @@ class IframeView {
 		mark.addEventListener("click", emitter);
 		mark.addEventListener("touchstart", emitter);
 
+		this.placeMark(mark, range);
+
 		this.element.appendChild(mark);
 
-		this.marks[cfiRange] = { "element": mark, "listeners": [emitter, cb] };
+		this.marks[cfiRange] = { "element": mark, "range": range, "listeners": [emitter, cb] };
 
 		return parent;
+	}
+
+	placeMark(element, range) {
+		let top, right, left;
+
+		if(this.layout.name === "pre-paginated" ||
+			this.settings.axis !== "horizontal") {
+			let pos = range.getBoundingClientRect();
+			top = pos.top;
+			right = pos.right;
+		} else {
+			// Element might break columns, so find the left most element
+			let rects = range.getClientRects();
+
+			let rect;
+			for (var i = 0; i != rects.length; i++) {
+				rect = rects[i];
+				if (!left || rect.left < left) {
+					left = rect.left;
+					// right = rect.right;
+					right = Math.ceil(left / this.layout.props.pageWidth) * this.layout.props.pageWidth - (this.layout.gap / 2);
+					top = rect.top;
+				}
+			}
+		}
+
+		element.style.top = `${top}px`;
+		element.style.left = `${right}px`;
 	}
 
 	unhighlight(cfiRange) {
@@ -701,7 +719,10 @@ class IframeView {
 
 			this.pane.removeMark(item.mark);
 			item.listeners.forEach((l) => {
-				if (l) { item.element.removeEventListener("click", l) };
+				if (l) {
+					item.element.removeEventListener("click", l);
+					item.element.removeEventListener("touchstart", l);
+				};
 			});
 			delete this.highlights[cfiRange];
 		}
@@ -713,7 +734,10 @@ class IframeView {
 			item = this.underlines[cfiRange];
 			this.pane.removeMark(item.mark);
 			item.listeners.forEach((l) => {
-				if (l) { item.element.removeEventListener("click", l) };
+				if (l) {
+					item.element.removeEventListener("click", l);
+					item.element.removeEventListener("touchstart", l);
+				};
 			});
 			delete this.underlines[cfiRange];
 		}
@@ -725,7 +749,10 @@ class IframeView {
 			item = this.marks[cfiRange];
 			this.element.removeChild(item.element);
 			item.listeners.forEach((l) => {
-				if (l) { item.element.removeEventListener("click", l) };
+				if (l) {
+					item.element.removeEventListener("click", l);
+					item.element.removeEventListener("touchstart", l);
+				};
 			});
 			delete this.marks[cfiRange];
 		}
@@ -753,6 +780,7 @@ class IframeView {
 			this.displayed = false;
 
 			this.removeListeners();
+			this.contents.destroy();
 
 			this.stopExpanding = true;
 			this.element.removeChild(this.iframe);

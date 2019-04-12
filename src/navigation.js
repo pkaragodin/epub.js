@@ -162,6 +162,10 @@ class Navigation {
 		}
 
 		let src = content.getAttribute("href") || "";
+		
+		if (!id) {
+			id = src;
+		}
 		let text = content.textContent || "";
 		let subitems = [];
 		let parentItem = getParentByTagName(item, "li");
@@ -169,12 +173,20 @@ class Navigation {
 
 		if (parentItem) {
 			parent = parentItem.getAttribute("id");
+			if (!parent) {
+				const parentContent = filterChildren(parentItem, "a", true);
+				parent = parentContent && parentContent.getAttribute("href");
+      			}
 		}
 
 		while (!parent && parentItem) {
 			parentItem = getParentByTagName(parentItem, "li");
 			if (parentItem) {
 				parent = parentItem.getAttribute("id");
+				if (!parent) {
+					const parentContent = filterChildren(parentItem, "a", true);
+          				parent = parentContent && parentContent.getAttribute("href");
+        			}
 			}
 		}
 
@@ -284,7 +296,7 @@ class Navigation {
 				parentNode = item.parentNode,
 				parent;
 
-		if(parentNode && parentNode.nodeName === "navPoint") {
+		if(parentNode && (parentNode.nodeName === "navPoint" || parentNode.nodeName.split(':').slice(-1)[0] === "navPoint")) {
 			parent = parentNode.getAttribute("id");
 		}
 

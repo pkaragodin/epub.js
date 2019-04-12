@@ -1,4 +1,4 @@
-import {uuid, isNumber, isElement, windowBounds} from "../../utils/core";
+import {uuid, isNumber, isElement, windowBounds, extend} from "../../utils/core";
 import throttle from 'lodash/throttle'
 
 class Stage {
@@ -24,6 +24,8 @@ class Stage {
 		let overflow  = options.overflow || false;
 		let axis = options.axis || "vertical";
 		let direction = options.direction;
+
+		extend(this.settings, options);
 
 		if(options.height && isNumber(options.height)) {
 			height = options.height + "px";
@@ -62,7 +64,15 @@ class Stage {
 		}
 
 		if (overflow) {
-			container.style.overflow = overflow;
+			if (overflow === "scroll" && axis === "vertical") {
+				container.style["overflow-y"] = overflow;
+				container.style["overflow-x"] = "hidden";
+			} else if (overflow === "scroll" && axis === "horizontal") {
+				container.style["overflow-y"] = "hidden";
+				container.style["overflow-x"] = overflow;
+			} else {
+				container.style["overflow"] = overflow;
+			}
 		}
 
 		if (direction) {
@@ -151,8 +161,8 @@ class Stage {
 
 	size(width, height){
 		var bounds;
-		// var width = _width || this.settings.width;
-		// var height = _height || this.settings.height;
+		let _width = width || this.settings.width;
+		let _height = height || this.settings.height;
 
 		// If width or height are set to false, inherit them from containing element
 		if(width === null) {
@@ -187,17 +197,12 @@ class Stage {
 		}
 
 		if(!isNumber(width)) {
-			bounds = this.container.getBoundingClientRect();
-			width = Math.floor(bounds.width);
-			//height = bounds.height;
+			width = this.container.clientWidth;
 		}
 
 		if(!isNumber(height)) {
-			bounds = bounds || this.container.getBoundingClientRect();
-			//width = bounds.width;
-			height = bounds.height;
+			height = this.container.clientHeight;
 		}
-
 
 		this.containerStyles = window.getComputedStyle(this.container);
 
@@ -218,12 +223,13 @@ class Stage {
 			bottom: parseFloat(bodyStyles["padding-bottom"]) || 0
 		};
 
-		if (!width) {
+		if (!_width) {
 			width = _windowBounds.width -
 								bodyPadding.left -
 								bodyPadding.right;
 		}
-		if ((this.settings.fullsize && !height) || !height) {
+
+		if ((this.settings.fullsize && !_height) || !_height) {
 			height = _windowBounds.height -
 								bodyPadding.top -
 								bodyPadding.bottom;
@@ -292,6 +298,7 @@ class Stage {
 		} else {
 			this.container.style.display = "block";
 		}
+		this.settings.axis = axis;
 	}
 
 	// orientation(orientation) {
@@ -313,6 +320,22 @@ class Stage {
 		if (this.settings.fullsize) {
 			document.body.style["direction"] = dir;
 		}
+		this.settings.dir = dir;
+	}
+
+	overflow(overflow) {
+		if (this.container) {
+			if (overflow === "scroll" && this.settings.axis === "vertical") {
+				this.container.style["overflow-y"] = overflow;
+				this.container.style["overflow-x"] = "hidden";
+			} else if (overflow === "scroll" && this.settings.axis === "horizontal") {
+				this.container.style["overflow-y"] = "hidden";
+				this.container.style["overflow-x"] = overflow;
+			} else {
+				this.container.style["overflow"] = overflow;
+			}
+		}
+		this.settings.overflow = overflow;
 	}
 
 	destroy() {

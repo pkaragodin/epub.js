@@ -13,9 +13,12 @@ import Rendition from "./rendition";
 import Archive from "./archive";
 import request from "./utils/request";
 import EpubCFI from "./epubcfi";
+import Store from "./store";
+import DisplayOptions from "./displayoptions";
 import { EPUBJS_VERSION, EVENTS } from "./utils/constants";
 
 const CONTAINER_PATH = "META-INF/container.xml";
+const IBOOKS_DISPLAY_OPTIONS_PATH = "META-INF/com.apple.ibooks.display-options.xml";
 
 const INPUT_TYPE = {
 	BINARY: "binary",
@@ -39,6 +42,7 @@ const INPUT_TYPE = {
  * @param {string} [options.replacements=none] use base64, blobUrl, or none for replacing assets in archived Epubs
  * @param {method} [options.canonical] optional function to determine canonical urls for a path
  * @param {string} [options.openAs] optional string to determine the input type
+ * @param {string} [options.store=false] cache the contents in local storage, value should be the name of the reader
  * @returns {Book}
  * @example new Book("/path/to/book.epub", {})
  * @example new Book({ replacements: "blobUrl" })
@@ -60,7 +64,8 @@ class Book {
 			encoding: undefined,
 			replacements: undefined,
 			canonical: undefined,
-			openAs: undefined
+			openAs: undefined,
+			store: undefined
 		});
 
 		extend(this.settings, options);
@@ -82,7 +87,8 @@ class Book {
 			cover: new defer(),
 			navigation: new defer(),
 			pageList: new defer(),
-			resources: new defer()
+			resources: new defer(),
+			displayOptions: new defer()
 		};
 
 		this.loaded = {
@@ -92,7 +98,8 @@ class Book {
 			cover: this.loading.cover.promise,
 			navigation: this.loading.navigation.promise,
 			pageList: this.loading.pageList.promise,
-			resources: this.loading.resources.promise
+			resources: this.loading.resources.promise,
+			displayOptions: this.loading.displayOptions.promise
 		};
 
 		/**
@@ -106,7 +113,8 @@ class Book {
 			this.loaded.metadata,
 			this.loaded.cover,
 			this.loaded.navigation,
-			this.loaded.resources
+			this.loaded.resources,
+			this.loaded.displayOptions
 		]);
 
 
@@ -174,6 +182,13 @@ class Book {
 		this.archive = undefined;
 
 		/**
+		 * @member {Store} storage
+		 * @memberof Book
+		 * @private
+		 */
+		this.storage = undefined;
+
+		/**
 		 * @member {Resources} resources
 		 * @memberof Book
 		 * @private
@@ -201,7 +216,17 @@ class Book {
 		 */
 		this.packaging = undefined;
 
+		/**
+		 * @member {DisplayOptions} displayOptions
+		 * @memberof DisplayOptions
+		 * @private
+		 */
+		this.displayOptions = undefined;
+
 		// this.toc = undefined;
+		if (this.settings.store) {
+			this.store(this.settings.store);
+		}
 
 		if(url) {
 			this.open(url, this.settings.openAs).catch((error) => {
@@ -233,7 +258,7 @@ class Book {
 		} else if (type === INPUT_TYPE.EPUB) {
 			this.archived = true;
 			this.url = new Url("/", "");
-			opening = this.request(input, "binary",this.settings.requestCredentials)
+			opening = this.request(input, "binary", this.settings.requestCredentials)
 				.then(this.openEpub.bind(this));
 		} else if(type == INPUT_TYPE.OPF) {
 			this.url = new Url(input);
@@ -318,13 +343,10 @@ class Book {
 	 * @return {Promise}     returns a promise with the requested resource
 	 */
 	load(path) {
-		var resolved;
-
+		var resolved = this.resolve(path);
 		if(this.archived) {
-			resolved = this.resolve(path);
 			return this.archive.request(resolved);
 		} else {
-			resolved = this.resolve(path);
 			return this.request(resolved, null, this.settings.requestCredentials, this.settings.requestHeaders);
 		}
 	}
@@ -420,33 +442,47 @@ class Book {
 
 
 	/**
-	 * unpack the contents of the Books packageXml
+	 * unpack the contents of the Books packaging
 	 * @private
-	 * @param {document} packageXml XML Document
+	 * @param {Packaging} packaging object
 	 */
-	unpack(opf) {
-		this.package = opf;
+	unpack(packaging) {
+		this.package = packaging; //TODO: deprecated this
 
-		this.spine.unpack(this.package, this.resolve.bind(this), this.canonical.bind(this));
+		if (this.packaging.metadata.layout === "") {
+			// rendition:layout not set - check display options if book is pre-paginated
+			this.load(this.url.resolve(IBOOKS_DISPLAY_OPTIONS_PATH)).then((xml) => {
+				this.displayOptions = new DisplayOptions(xml);
+				this.loading.displayOptions.resolve(this.displayOptions);
+			}).catch((err) => {
+				this.displayOptions = new DisplayOptions();
+				this.loading.displayOptions.resolve(this.displayOptions);
+			});
+		} else {
+			this.displayOptions = new DisplayOptions();
+			this.loading.displayOptions.resolve(this.displayOptions);
+		}
 
-		this.resources = new Resources(this.package.manifest, {
+		this.spine.unpack(this.packaging, this.resolve.bind(this), this.canonical.bind(this));
+
+		this.resources = new Resources(this.packaging.manifest, {
 			archive: this.archive,
 			resolver: this.resolve.bind(this),
 			request: this.request.bind(this),
 			replacements: this.settings.replacements || (this.archived ? "blobUrl" : "base64")
 		});
 
-		this.loadNavigation(this.package).then(() => {
+		this.loadNavigation(this.packaging).then(() => {
 			// this.toc = this.navigation.toc;
 			this.loading.navigation.resolve(this.navigation);
 		});
 
-		if (this.package.coverPath) {
-			this.cover = this.resolve(this.package.coverPath);
+		if (this.packaging.coverPath) {
+			this.cover = this.resolve(this.packaging.coverPath);
 		}
 		// Resolve promises
-		this.loading.manifest.resolve(this.package.manifest);
-		this.loading.metadata.resolve(this.package.metadata);
+		this.loading.manifest.resolve(this.packaging.manifest);
+		this.loading.metadata.resolve(this.packaging.metadata);
 		this.loading.spine.resolve(this.spine);
 		this.loading.cover.resolve(this.cover);
 		this.loading.resources.resolve(this.resources);
@@ -456,14 +492,18 @@ class Book {
 
 		if(this.archived || this.settings.replacements && this.settings.replacements != "none") {
 			this.replacements().then(() => {
-				this.opening.resolve(this);
+				this.loaded.displayOptions.then(() => {
+					this.opening.resolve(this);
+				});
 			})
 			.catch((err) => {
 				console.error(err);
 			});
 		} else {
 			// Resolve book opened promise
-			this.opening.resolve(this);
+			this.loaded.displayOptions.then(() => {
+				this.opening.resolve(this);
+			});
 		}
 
 	}
@@ -471,19 +511,19 @@ class Book {
 	/**
 	 * Load Navigation and PageList from package
 	 * @private
-	 * @param {document} opf XML Document
+	 * @param {Packaging} packaging
 	 */
-	loadNavigation(opf) {
-		let navPath = opf.navPath || opf.ncxPath;
-		let toc = opf.toc;
+	loadNavigation(packaging) {
+		let navPath = packaging.navPath || packaging.ncxPath;
+		let toc = packaging.toc;
 
 		// From json manifest
 		if (toc) {
 			return new Promise((resolve, reject) => {
 				this.navigation = new Navigation(toc);
 
-				if (opf.pageList) {
-					this.pageList = new PageList(opf.pageList); // TODO: handle page lists from Manifest
+				if (packaging.pageList) {
+					this.pageList = new PageList(packaging.pageList); // TODO: handle page lists from Manifest
 				}
 
 				resolve(this.navigation);
@@ -559,6 +599,61 @@ class Book {
 	}
 
 	/**
+	 * Store the epubs contents
+	 * @private
+	 * @param  {binary} input epub data
+	 * @param  {string} [encoding]
+	 * @return {Store}
+	 */
+	store(name) {
+		// Use "blobUrl" or "base64" for replacements
+		let replacementsSetting = this.settings.replacements && this.settings.replacements !== "none";
+		// Save original url
+		let originalUrl = this.url;
+		// Save original request method
+		let requester = this.settings.requestMethod || request.bind(this);
+		// Create new Store
+		this.storage = new Store(name, requester, this.resolve.bind(this));
+		// Replace request method to go through store
+		this.request = this.storage.request.bind(this.storage);
+
+		this.opened.then(() => {
+			if (this.archived) {
+				this.storage.requester = this.archive.request.bind(this.archive);
+			}
+			// Substitute hook
+			let substituteResources = (output, section) => {
+				section.output = this.resources.substitute(output, section.url);
+			};
+
+			// Set to use replacements
+			this.resources.settings.replacements = replacementsSetting || "blobUrl";
+			// Create replacement urls
+			this.resources.replacements().
+				then(() => {
+					return this.resources.replaceCss();
+				});
+
+			this.storage.on("offline", () => {
+				// Remove url to use relative resolving for hrefs
+				this.url = new Url("/", "");
+				// Add hook to replace resources in contents
+				this.spine.hooks.serialize.register(substituteResources);
+			});
+
+			this.storage.on("online", () => {
+				// Restore original url
+				this.url = originalUrl;
+				// Remove hook
+				this.spine.hooks.serialize.deregister(substituteResources);
+			});
+
+		});
+
+		return this.storage;
+	}
+
+	/**
 	 * Get the cover url
 	 * @return {string} coverUrl
 	 */
@@ -618,7 +713,7 @@ class Book {
 	 * @return {string} key
 	 */
 	key(identifier) {
-		var ident = identifier || this.package.metadata.identifier || this.url.filename;
+		var ident = identifier || this.packaging.metadata.identifier || this.url.filename;
 		return `epubjs:${EPUBJS_VERSION}:${ident}`;
 	}
 
@@ -642,6 +737,7 @@ class Book {
 		this.container && this.container.destroy();
 		this.packaging && this.packaging.destroy();
 		this.rendition && this.rendition.destroy();
+		this.displayOptions && this.displayOptions.destroy();
 
 		this.spine = undefined;
 		this.locations = undefined;

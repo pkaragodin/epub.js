@@ -157,10 +157,6 @@ class Contents {
 		rect = range.getBoundingClientRect();
 		width = rect.width;
 
-		if (this.content === this.document.body && rect.left) {
-			width += rect.left;
-		}
-
 		if (border && border.width) {
 			width += border.width;
 		}
@@ -184,12 +180,12 @@ class Contents {
 		rect = range.getBoundingClientRect();
 		height = rect.height;
 
-		if (this.content === this.document.body && rect.top) {
-			height += rect.top;
-		}
-
 		if (height && border.height) {
 			height += border.height;
+		}
+
+		if (height && rect.top) {
+			height += rect.top;
 		}
 
 		return Math.round(height);
@@ -454,7 +450,6 @@ class Contents {
 		clearTimeout(this.expanding);
 
 		requestAnimationFrame(this.resizeCheck.bind(this));
-
 		this.expanding = setTimeout(this.resizeListeners.bind(this), 350);
 	}
 
@@ -470,7 +465,8 @@ class Contents {
 		body.style['transitionTimingFunction'] = "linear";
 		body.style['transitionDelay'] = "0";
 
-		this.document.addEventListener('transitionend', this.resizeCheck.bind(this));
+		this._resizeCheck = this.resizeCheck.bind(this);
+		this.document.addEventListener('transitionend', this._resizeCheck);
 	}
 
 	/**
@@ -620,9 +616,15 @@ class Contents {
 
 			let id = target.substring(target.indexOf("#")+1);
 			let el = this.document.getElementById(id);
-
 			if(el) {
-				position = el.getBoundingClientRect();
+				if (isWebkit) {
+					// Webkit reports incorrect bounding rects in Columns
+					let newRange = new Range();
+					newRange.selectNode(el);
+					position = newRange.getBoundingClientRect();
+				} else {
+					position = el.getBoundingClientRect();
+				}
 			}
 		}
 
@@ -817,8 +819,10 @@ class Contents {
 			return;
 		}
 
+		this._triggerEvent = this.triggerEvent.bind(this);
+
 		DOM_EVENTS.forEach(function(eventName){
-			this.document.addEventListener(eventName, this.triggerEvent.bind(this), false);
+			this.document.addEventListener(eventName, this._triggerEvent, { passive: true });
 		}, this);
 
 	}
@@ -832,9 +836,9 @@ class Contents {
 			return;
 		}
 		DOM_EVENTS.forEach(function(eventName){
-			this.document.removeEventListener(eventName, this.triggerEvent, false);
+			this.document.removeEventListener(eventName, this._triggerEvent, { passive: true });
 		}, this);
-
+		this._triggerEvent = undefined;
 	}
 
 	/**
@@ -853,7 +857,8 @@ class Contents {
 		if(!this.document) {
 			return;
 		}
-		this.document.addEventListener("selectionchange", this.onSelectionChange.bind(this), false);
+		this._onSelectionChange = this.onSelectionChange.bind(this);
+		this.document.addEventListener("selectionchange", this._onSelectionChange, { passive: true });
 	}
 
 	/**
@@ -864,7 +869,8 @@ class Contents {
 		if(!this.document) {
 			return;
 		}
-		this.document.removeEventListener("selectionchange", this.onSelectionChange, false);
+		this.document.removeEventListener("selectionchange", this._onSelectionChange, { passive: true });
+		this._onSelectionChange = undefined;
 	}
 
 	/**
@@ -1048,20 +1054,32 @@ class Contents {
 	 */
 	fit(width, height){
 		var viewport = this.viewport();
-		var widthScale = width / parseInt(viewport.width);
-		var heightScale = height / parseInt(viewport.height);
+		var viewportWidth = parseInt(viewport.width);
+		var viewportHeight = parseInt(viewport.height);
+		var widthScale = width / viewportWidth;
+		var heightScale = height / viewportHeight;
 		var scale = widthScale < heightScale ? widthScale : heightScale;
 
-		var offsetY = (height - (viewport.height * scale)) / 2;
+		// the translate does not work as intended, elements can end up unaligned
+		// var offsetY = (height - (viewportHeight * scale)) / 2;
+		// var offsetX = 0;
+		// if (this.sectionIndex % 2 === 1) {
+		// 	offsetX = width - (viewportWidth * scale);
+		// }
 
 		this.layoutStyle("paginated");
 
-		this.width(width);
-		this.height(height);
+		// scale needs width and height to be set
+		this.width(viewportWidth);
+		this.height(viewportHeight);
 		this.overflow("hidden");
 
 		// Scale to the correct size
-		this.scaler(scale, 0, offsetY);
+		this.scaler(scale, 0, 0);
+		// this.scaler(scale, offsetX > 0 ? offsetX : 0, offsetY);
+
+		// background images are not scaled by transform
+		this.css("background-size", viewportWidth * scale + "px " + viewportHeight * scale + "px");
 
 		this.css("background-color", "transparent");
 	}
@@ -1160,7 +1178,7 @@ class Contents {
 			this.observer.disconnect();
 		}
 
-		this.document.removeEventListener('transitionend', this.resizeCheck);
+		this.document.removeEventListener('transitionend', this._resizeCheck);
 
 		this.removeListeners();
 

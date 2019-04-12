@@ -8,7 +8,7 @@ import Layout from "./layout";
 import Themes from "./themes";
 import Contents from "./contents";
 import Annotations from "./annotations";
-import { EVENTS } from "./utils/constants";
+import { EVENTS, DOM_EVENTS } from "./utils/constants";
 
 // Default Views
 import IframeView from "./managers/views/iframe";
@@ -20,7 +20,7 @@ import ContinuousViewManager from "./managers/continuous/index";
 /**
  * Displays an Epub as a series of Views for each Section.
  * Requires Manager and View class to handle specifics of rendering
- * the section contetn.
+ * the section content.
  * @class
  * @param {Book} book
  * @param {object} [options]
@@ -35,6 +35,7 @@ import ContinuousViewManager from "./managers/continuous/index";
  * @param {string} [options.stylesheet] url of stylesheet to be injected
  * @param {boolean} [options.resizeOnOrientationChange] false to disable orientation events
  * @param {string} [options.script] url of script to be injected
+ * @param {boolean | object} [options.snap=false] use snap scrolling
  */
 class Rendition {
 	constructor(book, options) {
@@ -51,7 +52,8 @@ class Rendition {
 			minSpreadWidth: 800,
 			stylesheet: null,
 			resizeOnOrientationChange: true,
-			script: null
+			script: null,
+			snap: false
 		});
 
 		extend(this.settings, options);
@@ -201,6 +203,9 @@ class Rendition {
 	 * @return {Promise} rendering has started
 	 */
 	start(){
+		if (!this.settings.layout && (this.book.package.metadata.layout === "pre-paginated" || this.book.displayOptions.fixedLayout === "true")) {
+			this.settings.layout = "pre-paginated";
+		}
 
 		if(!this.manager) {
 			this.ViewManager = this.requireManager(this.settings.manager);
@@ -397,7 +402,7 @@ class Rendition {
 	 */
 	afterDisplayed(view){
 
-		view.on(EVENTS.VIEWS.MARK_CLICKED, (cfiRange, data) => this.triggerMarkEvent(cfiRange, data, view));
+		view.on(EVENTS.VIEWS.MARK_CLICKED, (cfiRange, data) => this.triggerMarkEvent(cfiRange, data, view.contents));
 
 		this.hooks.render.trigger(view, this)
 			.then(() => {
@@ -622,13 +627,21 @@ class Rendition {
 	/**
 	 * Adjust if the rendition uses spreads
 	 * @param  {string} spread none | auto (TODO: implement landscape, portrait, both)
-	 * @param  {int} min min width to use spreads at
+	 * @param  {int} [min] min width to use spreads at
 	 */
 	spread(spread, min){
 
-		this._layout.spread(spread, min);
+		this.settings.spread = spread;
 
-		if (this.manager.isRendered()) {
+		if (min) {
+			this.settings.minSpreadWidth = min;
+		}
+
+		if (this._layout) {
+			this._layout.spread(spread, min);
+		}
+
+		if (this.manager && this.manager.isRendered()) {
 			this.manager.updateLayout();
 		}
 	}
@@ -844,9 +857,7 @@ class Rendition {
 	 * @param  {Contents} view contents
 	 */
 	passEvents(contents){
-		var listenedEvents = Contents.listenedEvents;
-
-		listenedEvents.forEach((e) => {
+		DOM_EVENTS.forEach((e) => {
 			contents.on(e, (ev) => this.triggerViewEvent(ev, contents));
 		});
 
@@ -927,18 +938,20 @@ class Rendition {
 		}
 
 		let computed = contents.window.getComputedStyle(contents.content, null);
-		let height = contents.content.offsetHeight - (parseFloat(computed.paddingTop) + parseFloat(computed.paddingBottom));
+		let height = (contents.content.offsetHeight - (parseFloat(computed.paddingTop) + parseFloat(computed.paddingBottom))) * .95;
+		let verticalPadding = parseFloat(computed.verticalPadding);
 
 		contents.addStylesheetRules({
 			"img" : {
-				"max-width": (this._layout.columnWidth ? this._layout.columnWidth + "px" : "100%") + "!important",
+				"max-width": (this._layout.columnWidth ? (this._layout.columnWidth - verticalPadding) + "px" : "100%") + "!important",
 				"max-height": height + "px" + "!important",
 				"object-fit": "contain",
 				"page-break-inside": "avoid",
-				"break-inside": "avoid"
+				"break-inside": "avoid",
+				"box-sizing": "border-box"
 			},
 			"svg" : {
-				"max-width": (this._layout.columnWidth ? this._layout.columnWidth + "px" : "100%") + "!important",
+				"max-width": (this._layout.columnWidth ? (this._layout.columnWidth - verticalPadding) + "px" : "100%") + "!important",
 				"max-height": height + "px" + "!important",
 				"page-break-inside": "avoid",
 				"break-inside": "avoid"
@@ -1022,7 +1035,7 @@ class Rendition {
 	 * @private
 	 */
 	injectIdentifier(doc, section) {
-		let ident = this.book.package.metadata.identifier;
+		let ident = this.book.packaging.metadata.identifier;
 		let meta = doc.createElement("meta");
 		meta.setAttribute("name", "dc.relation.ispartof");
 		if (ident) {
