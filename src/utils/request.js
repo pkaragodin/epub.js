@@ -75,7 +75,6 @@ function request(url, type, withCredentials, headers) {
 	}
 
 	function handler() {
-		console.log(this);
 		const  getResponseData = (_resp) => {
 			const response = _resp? _resp: this.response;
 			if(this.responseType == "arraybuffer") return response;
@@ -117,7 +116,6 @@ function request(url, type, withCredentials, headers) {
 				}
 
 				if(responseXML){
-					console.log("responseXML", this.responseXML);
 					r = getResponseData(this.responseXML);
 				} else
 				if(isXml(type)){
