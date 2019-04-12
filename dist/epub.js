@@ -6046,7 +6046,6 @@ function request(url, type, withCredentials, headers) {
 	function handler() {
 		var _this = this;
 
-		console.log(this);
 		var getResponseData = function getResponseData(_resp) {
 			var response = _resp ? _resp : _this.response;
 			if (_this.responseType == "arraybuffer") return response;
@@ -6089,7 +6088,6 @@ function request(url, type, withCredentials, headers) {
 				}
 
 				if (responseXML) {
-					console.log("responseXML", this.responseXML);
 					r = getResponseData(this.responseXML);
 				} else if ((0, _core.isXml)(type)) {
 					// xhr.overrideMimeType("text/xml"); // for OPF parsing
@@ -9123,10 +9121,8 @@ var CryptoJS = __webpack_require__(56);
 
 function decrypt(keyHex, base64EncodedData) {
 	var key = CryptoJS.enc.Hex.parse(keyHex);
-	console.log("base64encoded", base64EncodedData);
 	// parse base64 encoded data
 	var data = CryptoJS.enc.Base64.parse(base64EncodedData);
-	console.log("data", data);
 	// take first 16 bytes for get initializing vector
 	var iv = CryptoJS.lib.WordArray.create([data.words[0], data.words[1], data.words[2], data.words[3]], 16);
 	var encryptedData = CryptoJS.lib.WordArray.create(data.words.slice(4), data.sigBytes - 16);
@@ -25216,7 +25212,6 @@ var Archive = function () {
 	}, {
 		key: "handleResponse",
 		value: function handleResponse(_response, type) {
-			console.log("archive handle response", _response, type);
 			var decryptResponse = function decryptResponse(resp) {
 				var settings = window.sharedSettings;
 				if (settings && settings.decryptionKey) {
@@ -25226,7 +25221,6 @@ var Archive = function () {
 			};
 
 			var response = decryptResponse(_response);
-			console.log("archive decypted ", response);
 
 			var r;
 
@@ -25255,7 +25249,6 @@ var Archive = function () {
 	}, {
 		key: "getBlob",
 		value: function getBlob(url, mimeType) {
-			console.log("get blob from archive", url, mimeType);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 			var entry = this.zip.file(decodededUrl);
 
@@ -25277,14 +25270,10 @@ var Archive = function () {
 	}, {
 		key: "getText",
 		value: function getText(url, encoding) {
-			console.log("get text from archive", url, encoding);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
-			console.log("decoded url", decodededUrl, this.zip);
 			var entry = this.zip.file(decodededUrl);
-			console.log(entry);
 			if (entry) {
 				return entry.async("string").then(function (text) {
-					console.log("text from archive", text);
 					return text;
 				});
 			} else {
@@ -25302,7 +25291,6 @@ var Archive = function () {
 	}, {
 		key: "getBase64",
 		value: function getBase64(url, mimeType) {
-			console.log("get base64 from archive", url, mimeType);
 			var decodededUrl = window.decodeURIComponent(url.substr(1)); // Remove first slash
 			var entry = this.zip.file(decodededUrl);
 
