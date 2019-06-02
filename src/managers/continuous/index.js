@@ -349,8 +349,8 @@ class ContinuousViewManager extends DefaultViewManager {
 			below
 		})
 
-		var toRemoveAbove = takeLeft(above, Math.max(above.length - 2, 0));
-		var toRemoveBelow = takeRight(below, Math.max(below.length -2, 0));
+		var toRemoveAbove = takeLeft(above, Math.max(above.length - 1, 0));
+		var toRemoveBelow = takeRight(below, Math.max(below.length -1, 0));
 		var toRemove = concat(
 			toRemoveAbove,
 			toRemoveBelow
@@ -407,6 +407,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			}*/
 
 		task.resolve();
+		this.isScrollLocked = false;
 		return task.promise;
 	}
 
@@ -549,13 +550,25 @@ class ContinuousViewManager extends DefaultViewManager {
 
 	scrolled() {
 		console.log("scrolled");
+		if(this.isScrollLocked){
+			return;
+		}
+		this.isScrollLocked = true;
+		setTimeout(()=>{
+			this.isScrollLocked = false;
+		}, 600)
 		this.q.enqueue(function() {
 			this.check();
 		}.bind(this));
 
+		if(this.scrollLeft % this.settings.width !== 0){
+			this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width), 0, true);
+		}
+
+
 		this.emit(EVENTS.MANAGERS.SCROLL, {
 			top: this.scrollTop,
-			left: this.scrollLeft
+			left: this.scrollLeft - (this.scrollLeft % this.settings.width)
 		});
 
 		clearTimeout(this.afterScrolled);
