@@ -3,11 +3,14 @@ import DefaultViewManager from "../default";
 import Snap from "../helpers/snap";
 import { EVENTS } from "../../utils/constants";
 import debounce from "lodash/debounce";
+import takeRight from "lodash/takeRight";
+import takeLeft from "lodash/take";
+import concat from "lodash/concat"
 
 class ContinuousViewManager extends DefaultViewManager {
 	constructor(options) {
 		super(options);
-
+		console.log("create continous view manager");
 		this.name = "continuous";
 
 		this.settings = extend(this.settings || {}, {
@@ -45,6 +48,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	display(section, target){
+		console.log("display", section, target);
 		return DefaultViewManager.prototype.display.call(this, section, target)
 			.then(function () {
 				return this.fill();
@@ -68,6 +72,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	moveTo(offset){
+		console.log("moveTo", offset);
 		// var bounds = this.stage.bounds();
 		// var dist = Math.floor(offset.top / bounds.height) * bounds.height;
 		var distX = 0,
@@ -90,6 +95,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	afterResized(view){
+		console.log("afterResized", view);
 		this.emit(EVENTS.MANAGERS.RESIZE, view.section);
 	}
 
@@ -103,6 +109,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	add(section){
+		console.log("add", section);
 		var view = this.createView(section);
 
 		this.views.append(view);
@@ -123,6 +130,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	append(section){
+		console.log("append", section);
 		var view = this.createView(section);
 
 		view.on(EVENTS.VIEWS.RESIZED, (bounds) => {
@@ -141,6 +149,8 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	prepend(section){
+		console.log("prepend", section);
+
 		var view = this.createView(section);
 
 		view.on(EVENTS.VIEWS.RESIZED, (bounds) => {
@@ -169,6 +179,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	update(_offset){
+		console.log("update", _offset);
 		var container = this.bounds();
 		var views = this.views.all();
 		var viewsLength = views.length;
@@ -192,6 +203,7 @@ class ContinuousViewManager extends DefaultViewManager {
 						.then(function (view) {
 							view.show();
 						}, (err) => {
+							console.log("displaying error");
 							view.hide();
 						});
 					promises.push(displayed);
@@ -224,6 +236,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	check(_offsetLeft, _offsetTop){
+		console.log("check", _offsetLeft, _offsetTop);
 		var checking = new defer();
 		var newViews = [];
 
@@ -287,6 +300,7 @@ class ContinuousViewManager extends DefaultViewManager {
 		});
 
 		if(newViews.length){
+			console.log("new view added", newViews.length);
 			return Promise.all(promises)
 				.then(() => {
 					if (this.layout.name === "pre-paginated" && this.layout.props.spread) {
@@ -300,6 +314,8 @@ class ContinuousViewManager extends DefaultViewManager {
 					return err;
 				});
 		} else {
+
+			console.log("no new views added");
 			this.q.enqueue(function(){
 				this.update();
 			}.bind(this));
@@ -313,28 +329,89 @@ class ContinuousViewManager extends DefaultViewManager {
 	trim(){
 		var task = new defer();
 		var displayed = this.views.displayed();
+
 		var first = displayed[0];
 		var last = displayed[displayed.length-1];
+
 		var firstIndex = this.views.indexOf(first);
 		var lastIndex = this.views.indexOf(last);
+
 		var above = this.views.slice(0, firstIndex);
 		var below = this.views.slice(lastIndex+1);
 
-		// Erase all but last above
-		for (var i = 0; i < above.length-1; i++) {
-			this.erase(above[i], above);
+		console.log("trim", {
+			displayed,
+			first,
+			last,
+			firstIndex,
+			lastIndex,
+			above,
+			below
+		})
+
+		var toRemoveAbove = takeLeft(above, Math.max(above.length - 2, 0));
+		var toRemoveBelow = takeRight(below, Math.max(below.length -2, 0));
+		var toRemove = concat(
+			toRemoveAbove,
+			toRemoveBelow
+		);
+
+		console.log("toRemove", toRemove);
+
+		var prevTop;
+		var prevLeft;
+
+		if(!this.settings.fullsize) {
+			prevTop = this.container.scrollTop;
+			prevLeft = this.container.scrollLeft;
+		} else {
+			prevTop = window.scrollY;
+			prevLeft = window.scrollX;
 		}
 
-		// Erase all except first below
-		for (var j = 1; j < below.length; j++) {
-			this.erase(below[j]);
+		var offsetWidth = toRemoveAbove.reduce((acc, view) => acc + view.bounds().width, 0)
+
+		for(var i = 0; i < toRemove.length; i++){
+			this.views.remove(toRemove[i]);
 		}
+
+		if(toRemoveAbove.length) {
+			if(this.settings.axis === "vertical") {
+				// @todo not implemented
+				//this.scrollTo(0, prevTop - bounds.height, true);
+			} else {
+				// console.log("scrollTo",prevLeft - Math.floor(bounds.width));
+				console.log("Scroll!!!",prevLeft - Math.floor(offsetWidth))
+				this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
+			}
+		}
+
+
+
+
+		/*	var erased = true
+
+			// Erase all but last above
+			for (var i = 0; i < above.length - 1; i++) {
+				if(erased) continue;
+				this.erase(above[i], above);
+				erased = true;
+			}
+
+
+			// Erase all except first below
+			for (var j = 1; j < below.length; j++) {
+				if(erased) continue;
+				this.erase(below[j]);
+				erased = true;
+			}*/
 
 		task.resolve();
 		return task.promise;
 	}
 
 	erase(view, above){ //Trim
+		console.log("erase", view, above);
 
 		var prevTop;
 		var prevLeft;
@@ -355,6 +432,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			if(this.settings.axis === "vertical") {
 				this.scrollTo(0, prevTop - bounds.height, true);
 			} else {
+				console.log("scrollTo",prevLeft - Math.floor(bounds.width));
 				this.scrollTo(prevLeft - Math.floor(bounds.width), 0, true);
 			}
 		}
@@ -404,14 +482,15 @@ class ContinuousViewManager extends DefaultViewManager {
 
 		this._onScroll = this.onScroll.bind(this);
 		scroller.addEventListener("scroll", this._onScroll);
-		this._scrolled = debounce(this.scrolled.bind(this), 30);
-		// this.tick.call(window, this.onScroll.bind(this));
+		this._scrolled = debounce(this.scrolled.bind(this), 40);
+		//this.tick.call(window, this.onScroll.bind(this));
 
 		this.didScroll = false;
 
 	}
 
 	removeEventListeners(){
+		console.log("removeEventListeners");
 		var scroller;
 
 		if(!this.settings.fullsize) {
@@ -425,6 +504,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	onScroll(){
+		console.log("onScroll");
 		let scrollTop;
 		let scrollLeft;
 		let dir = this.settings.direction === "rtl" ? -1 : 1;
@@ -456,9 +536,10 @@ class ContinuousViewManager extends DefaultViewManager {
 
 		clearTimeout(this.scrollTimeout);
 		this.scrollTimeout = setTimeout(function(){
-			this.scrollDeltaVert = 0;
-			this.scrollDeltaHorz = 0;
-		}.bind(this), 150);
+			/*this.scrollDeltaVert = 0;
+			this.scrollDeltaHorz = 0;*/
+			//this.check();
+		}.bind(this), 100);
 
 		clearTimeout(this.afterScrolled);
 
@@ -467,7 +548,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	scrolled() {
-
+		console.log("scrolled");
 		this.q.enqueue(function() {
 			this.check();
 		}.bind(this));
@@ -491,10 +572,11 @@ class ContinuousViewManager extends DefaultViewManager {
 			});
 
 		}.bind(this), this.settings.afterScrolledTimeout);
+
 	}
 
 	next(){
-
+		console.log("next");
 		let dir = this.settings.direction;
 		let delta = this.layout.props.name === "pre-paginated" &&
 								this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
@@ -517,7 +599,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	prev(){
-
+		console.log("prev");
 		let dir = this.settings.direction;
 		let delta = this.layout.props.name === "pre-paginated" &&
 								this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
@@ -551,6 +633,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	// }
 
 	updateFlow(flow){
+		console.log("updtateFlow");
 		if (this.rendered && this.snapper) {
 			this.snapper.destroy();
 			this.snapper = undefined;
@@ -564,6 +647,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	destroy(){
+		console.log("destroy");
 		super.destroy();
 
 		if (this.snapper) {
