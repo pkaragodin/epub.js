@@ -10,7 +10,6 @@ import concat from "lodash/concat"
 class ContinuousViewManager extends DefaultViewManager {
 	constructor(options) {
 		super(options);
-		console.log("create continous view manager");
 		this.name = "continuous";
 
 		this.settings = extend(this.settings || {}, {
@@ -48,7 +47,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	display(section, target){
-		console.log("display", section, target);
 		return DefaultViewManager.prototype.display.call(this, section, target)
 			.then(function () {
 				return this.fill();
@@ -72,7 +70,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	moveTo(offset){
-		console.log("moveTo", offset);
 		// var bounds = this.stage.bounds();
 		// var dist = Math.floor(offset.top / bounds.height) * bounds.height;
 		var distX = 0,
@@ -95,7 +92,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	afterResized(view){
-		console.log("afterResized", view);
 		this.emit(EVENTS.MANAGERS.RESIZE, view.section);
 	}
 
@@ -109,7 +105,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	add(section){
-		console.log("add", section);
 		var view = this.createView(section);
 
 		this.views.append(view);
@@ -130,7 +125,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	append(section){
-		console.log("append", section);
 		var view = this.createView(section);
 
 		view.on(EVENTS.VIEWS.RESIZED, (bounds) => {
@@ -149,7 +143,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	prepend(section){
-		console.log("prepend", section);
 
 		var view = this.createView(section);
 
@@ -179,7 +172,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	update(_offset){
-		console.log("update", _offset);
 		var container = this.bounds();
 		var views = this.views.all();
 		var viewsLength = views.length;
@@ -203,7 +195,6 @@ class ContinuousViewManager extends DefaultViewManager {
 						.then(function (view) {
 							view.show();
 						}, (err) => {
-							console.log("displaying error");
 							view.hide();
 						});
 					promises.push(displayed);
@@ -236,7 +227,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	check(_offsetLeft, _offsetTop){
-		console.log("check", _offsetLeft, _offsetTop);
 		var checking = new defer();
 		var newViews = [];
 
@@ -300,7 +290,6 @@ class ContinuousViewManager extends DefaultViewManager {
 		});
 
 		if(newViews.length){
-			console.log("new view added", newViews.length);
 			return Promise.all(promises)
 				.then(() => {
 					if (this.layout.name === "pre-paginated" && this.layout.props.spread) {
@@ -315,7 +304,6 @@ class ContinuousViewManager extends DefaultViewManager {
 				});
 		} else {
 
-			console.log("no new views added");
 			this.q.enqueue(function(){
 				this.update();
 			}.bind(this));
@@ -339,24 +327,12 @@ class ContinuousViewManager extends DefaultViewManager {
 		var above = this.views.slice(0, firstIndex);
 		var below = this.views.slice(lastIndex+1);
 
-		console.log("trim", {
-			displayed,
-			first,
-			last,
-			firstIndex,
-			lastIndex,
-			above,
-			below
-		})
-
 		var toRemoveAbove = takeLeft(above, Math.max(above.length - 2, 0));
 		var toRemoveBelow = takeRight(below, Math.max(below.length -2, 0));
 		var toRemove = concat(
 			toRemoveAbove,
 			toRemoveBelow
 		);
-
-		console.log("toRemove", toRemove);
 
 		var prevTop;
 		var prevLeft;
@@ -380,8 +356,6 @@ class ContinuousViewManager extends DefaultViewManager {
 				// @todo not implemented
 				//this.scrollTo(0, prevTop - bounds.height, true);
 			} else {
-				// console.log("scrollTo",prevLeft - Math.floor(bounds.width));
-				console.log("Scroll!!!",prevLeft - Math.floor(offsetWidth))
 				this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
 			}
 		}
@@ -411,8 +385,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	erase(view, above){ //Trim
-		console.log("erase", view, above);
-
 		var prevTop;
 		var prevLeft;
 
@@ -432,7 +404,6 @@ class ContinuousViewManager extends DefaultViewManager {
 			if(this.settings.axis === "vertical") {
 				this.scrollTo(0, prevTop - bounds.height, true);
 			} else {
-				console.log("scrollTo",prevLeft - Math.floor(bounds.width));
 				this.scrollTo(prevLeft - Math.floor(bounds.width), 0, true);
 			}
 		}
@@ -490,7 +461,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	removeEventListeners(){
-		console.log("removeEventListeners");
 		var scroller;
 
 		if(!this.settings.fullsize) {
@@ -504,7 +474,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	onScroll(){
-		console.log("onScroll");
 		let scrollTop;
 		let scrollLeft;
 		let dir = this.settings.direction === "rtl" ? -1 : 1;
@@ -548,7 +517,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	scrolled() {
-		console.log("scrolled");
 		this.q.enqueue(function() {
 			this.check();
 		}.bind(this));
@@ -576,7 +544,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	next(){
-		console.log("next");
 		let dir = this.settings.direction;
 		let delta = this.layout.props.name === "pre-paginated" &&
 								this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
@@ -599,7 +566,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	prev(){
-		console.log("prev");
 		let dir = this.settings.direction;
 		let delta = this.layout.props.name === "pre-paginated" &&
 								this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
@@ -633,7 +599,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	// }
 
 	updateFlow(flow){
-		console.log("updtateFlow");
 		if (this.rendered && this.snapper) {
 			this.snapper.destroy();
 			this.snapper = undefined;
@@ -647,7 +612,6 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	destroy(){
-		console.log("destroy");
 		super.destroy();
 
 		if (this.snapper) {
