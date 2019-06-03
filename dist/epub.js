@@ -14238,6 +14238,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 
 		var _this = _possibleConstructorReturn(this, (ContinuousViewManager.__proto__ || Object.getPrototypeOf(ContinuousViewManager)).call(this, options));
 
+		console.log("create continous view manager");
 		_this.name = "continuous";
 
 		_this.settings = (0, _core.extend)(_this.settings || {}, {
@@ -14278,6 +14279,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	_createClass(ContinuousViewManager, [{
 		key: "display",
 		value: function display(section, target) {
+			console.log("display", section, target);
 			return _default2.default.prototype.display.call(this, section, target).then(function () {
 				return this.fill();
 			}.bind(this));
@@ -14304,6 +14306,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "moveTo",
 		value: function moveTo(offset) {
+			console.log("moveTo", offset);
 			// var bounds = this.stage.bounds();
 			// var dist = Math.floor(offset.top / bounds.height) * bounds.height;
 			var distX = 0,
@@ -14327,6 +14330,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "afterResized",
 		value: function afterResized(view) {
+			console.log("afterResized", view);
 			this.emit(_constants.EVENTS.MANAGERS.RESIZE, view.section);
 		}
 
@@ -14345,6 +14349,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 		value: function add(section) {
 			var _this3 = this;
 
+			console.log("add", section);
 			var view = this.createView(section);
 
 			this.views.append(view);
@@ -14368,6 +14373,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 		value: function append(section) {
 			var _this4 = this;
 
+			console.log("append", section);
 			var view = this.createView(section);
 
 			view.on(_constants.EVENTS.VIEWS.RESIZED, function (bounds) {
@@ -14388,6 +14394,8 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 		key: "prepend",
 		value: function prepend(section) {
 			var _this5 = this;
+
+			console.log("prepend", section);
 
 			var view = this.createView(section);
 
@@ -14418,6 +14426,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "update",
 		value: function update(_offset) {
+			console.log("update", _offset);
 			var container = this.bounds();
 			var views = this.views.all();
 			var viewsLength = views.length;
@@ -14440,6 +14449,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 						var displayed = view.display(this.request).then(function (view) {
 							view.show();
 						}, function (err) {
+							console.log("displaying error");
 							view.hide();
 						});
 						promises.push(displayed);
@@ -14472,6 +14482,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 		value: function check(_offsetLeft, _offsetTop) {
 			var _this6 = this;
 
+			console.log("check", _offsetLeft, _offsetTop);
 			var checking = new _core.defer();
 			var newViews = [];
 
@@ -14534,6 +14545,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			});
 
 			if (newViews.length) {
+				console.log("new view added", newViews.length);
 				return Promise.all(promises).then(function () {
 					if (_this6.layout.name === "pre-paginated" && _this6.layout.props.spread) {
 						return _this6.check();
@@ -14546,6 +14558,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 				});
 			} else {
 
+				console.log("no new views added");
 				this.q.enqueue(function () {
 					this.update();
 				}.bind(this));
@@ -14568,9 +14581,21 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			var above = this.views.slice(0, firstIndex);
 			var below = this.views.slice(lastIndex + 1);
 
-			var toRemoveAbove = (0, _take2.default)(above, Math.max(above.length - 2, 0));
-			var toRemoveBelow = (0, _takeRight2.default)(below, Math.max(below.length - 2, 0));
+			console.log("trim", {
+				displayed: displayed,
+				first: first,
+				last: last,
+				firstIndex: firstIndex,
+				lastIndex: lastIndex,
+				above: above,
+				below: below
+			});
+
+			var toRemoveAbove = (0, _take2.default)(above, Math.max(above.length - 1, 0));
+			var toRemoveBelow = (0, _takeRight2.default)(below, Math.max(below.length - 1, 0));
 			var toRemove = (0, _concat2.default)(toRemoveAbove, toRemoveBelow);
+
+			console.log("toRemove", toRemove);
 
 			var prevTop;
 			var prevLeft;
@@ -14596,6 +14621,8 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 					// @todo not implemented
 					//this.scrollTo(0, prevTop - bounds.height, true);
 				} else {
+					// console.log("scrollTo",prevLeft - Math.floor(bounds.width));
+					console.log("Scroll!!!", prevLeft - Math.floor(offsetWidth));
 					this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
 				}
 			}
@@ -14615,12 +14642,15 @@ var ContinuousViewManager = function (_DefaultViewManager) {
    	}*/
 
 			task.resolve();
+			this.isScrollLocked = false;
 			return task.promise;
 		}
 	}, {
 		key: "erase",
 		value: function erase(view, above) {
 			//Trim
+			console.log("erase", view, above);
+
 			var prevTop;
 			var prevLeft;
 
@@ -14640,6 +14670,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 				if (this.settings.axis === "vertical") {
 					this.scrollTo(0, prevTop - bounds.height, true);
 				} else {
+					console.log("scrollTo", prevLeft - Math.floor(bounds.width));
 					this.scrollTo(prevLeft - Math.floor(bounds.width), 0, true);
 				}
 			}
@@ -14698,6 +14729,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "removeEventListeners",
 		value: function removeEventListeners() {
+			console.log("removeEventListeners");
 			var scroller;
 
 			if (!this.settings.fullsize) {
@@ -14712,6 +14744,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "onScroll",
 		value: function onScroll() {
+			console.log("onScroll");
 			var scrollTop = void 0;
 			var scrollLeft = void 0;
 			var dir = this.settings.direction === "rtl" ? -1 : 1;
@@ -14754,13 +14787,27 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "scrolled",
 		value: function scrolled() {
+			var _this7 = this;
+
+			console.log("scrolled");
+			if (this.isScrollLocked) {
+				return;
+			}
+			this.isScrollLocked = true;
+			setTimeout(function () {
+				_this7.isScrollLocked = false;
+			}, 600);
 			this.q.enqueue(function () {
 				this.check();
 			}.bind(this));
 
+			if (this.scrollLeft % this.settings.width !== 0) {
+				this.scrollTo(this.scrollLeft - this.scrollLeft % this.settings.width, 0, true);
+			}
+
 			this.emit(_constants.EVENTS.MANAGERS.SCROLL, {
 				top: this.scrollTop,
-				left: this.scrollLeft
+				left: this.scrollLeft - this.scrollLeft % this.settings.width
 			});
 
 			clearTimeout(this.afterScrolled);
@@ -14780,6 +14827,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "next",
 		value: function next() {
+			console.log("next");
 			var dir = this.settings.direction;
 			var delta = this.layout.props.name === "pre-paginated" && this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
 
@@ -14800,6 +14848,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "prev",
 		value: function prev() {
+			console.log("prev");
 			var dir = this.settings.direction;
 			var delta = this.layout.props.name === "pre-paginated" && this.layout.props.spread ? this.layout.props.delta * 2 : this.layout.props.delta;
 
@@ -14832,6 +14881,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "updateFlow",
 		value: function updateFlow(flow) {
+			console.log("updtateFlow");
 			if (this.rendered && this.snapper) {
 				this.snapper.destroy();
 				this.snapper = undefined;
@@ -14846,6 +14896,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "destroy",
 		value: function destroy() {
+			console.log("destroy");
 			_get(ContinuousViewManager.prototype.__proto__ || Object.getPrototypeOf(ContinuousViewManager.prototype), "destroy", this).call(this);
 
 			if (this.snapper) {
