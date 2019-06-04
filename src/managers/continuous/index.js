@@ -327,8 +327,9 @@ class ContinuousViewManager extends DefaultViewManager {
 		var above = this.views.slice(0, firstIndex);
 		var below = this.views.slice(lastIndex+1);
 
-		var toRemoveAbove = takeLeft(above, Math.max(above.length - 1, 0));
-		var toRemoveBelow = takeRight(below, Math.max(below.length -1, 0));
+		var toRemoveAbove = takeLeft(above, Math.max(above.length - 2, 0));
+		var toRemoveBelow = takeRight(below, Math.max(below.length - 2, 0));
+
 		var toRemove = concat(
 			toRemoveAbove,
 			toRemoveBelow
@@ -352,12 +353,15 @@ class ContinuousViewManager extends DefaultViewManager {
 		}
 
 		if(toRemoveAbove.length) {
-			if(this.settings.axis === "vertical") {
-				// @todo not implemented
-				//this.scrollTo(0, prevTop - bounds.height, true);
-			} else {
-				this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
-			}
+			setTimeout(()=>{
+				if(this.settings.axis === "vertical") {
+					// @todo not implemented
+					//this.scrollTo(0, prevTop - bounds.height, true);
+				} else {
+					this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
+				}
+			}, 0);
+
 		}
 
 
@@ -523,13 +527,18 @@ class ContinuousViewManager extends DefaultViewManager {
 		this.isScrollLocked = true;
 		setTimeout(()=>{
 			this.isScrollLocked = false;
-		}, 600)
+		}, 100)
+
 		this.q.enqueue(function() {
 			this.check();
 		}.bind(this));
 
-		if(this.scrollLeft % this.settings.width !== 0){
-			this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width), 0, true);
+		if(this.scrollLeft % this.settings.width >  20){
+			if(this.scrollLeft % this.settings.width > this.settings.width / 3){
+				this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width) + this.settings.width, 0, true);
+			} else {
+				this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width) + this.settings.width, 0, true);
+			}
 		}
 
 
