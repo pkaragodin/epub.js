@@ -751,10 +751,15 @@ class DefaultViewManager {
 		this.scrolled = true;
 	}
 
-	scrollTo(x, y, silent){
+	scrollTo(_x, y, silent){
 		if(silent) {
 			this.ignore = true;
 		}
+
+		// может не дотягивать как слева так и справа
+		var abnormalOffset = (_x % this.settings.width)
+		console.log("abnormalOffset", abnormalOffset)
+		var x = _x - abnormalOffset;
 
 		if(!this.settings.fullsize) {
 			this.container.scrollLeft = x;
@@ -763,6 +768,7 @@ class DefaultViewManager {
 			window.scrollTo(x,y);
 		}
 		this.scrolled = true;
+		return { x, y };
 	}
 
 	onScroll(){

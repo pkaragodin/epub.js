@@ -209,7 +209,7 @@ class ContinuousViewManager extends DefaultViewManager {
 				clearTimeout(this.trimTimeout);
 				this.trimTimeout = setTimeout(function(){
 					this.q.enqueue(this.trim.bind(this));
-				}.bind(this), 250);
+				}.bind(this), 50);
 			}
 
 		}
@@ -228,6 +228,7 @@ class ContinuousViewManager extends DefaultViewManager {
 
 	check(_offsetLeft, _offsetTop){
 		var checking = new defer();
+		this.isChecking = true;
 		var newViews = [];
 
 		var horizontal = (this.settings.axis === "horizontal");
@@ -315,6 +316,8 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	trim(){
+		//console.log("trim")
+		this.isTriming = true;
 		var task = new defer();
 		var displayed = this.views.displayed();
 
@@ -330,59 +333,55 @@ class ContinuousViewManager extends DefaultViewManager {
 		var toRemoveAbove = takeLeft(above, Math.max(above.length - 2, 0));
 		var toRemoveBelow = takeRight(below, Math.max(below.length - 2, 0));
 
-		var toRemove = concat(
+	/*	var toRemove = concat(
 			toRemoveAbove,
 			toRemoveBelow
 		);
+*/
 
-		var prevTop;
-		var prevLeft;
+		clearInterval(this.triming);
+		this.triming = setTimeout(()=>{
 
-		if(!this.settings.fullsize) {
-			prevTop = this.container.scrollTop;
-			prevLeft = this.container.scrollLeft;
-		} else {
-			prevTop = window.scrollY;
-			prevLeft = window.scrollX;
-		}
+			var prevTop;
+			var prevLeft;
 
-		var offsetWidth = toRemoveAbove.reduce((acc, view) => acc + view.bounds().width, 0)
+			if(!this.settings.fullsize) {
+				prevTop = this.container.scrollTop;
+				prevLeft = this.container.scrollLeft;
+			} else {
+				prevTop = window.scrollY;
+				prevLeft = window.scrollX;
+			}
 
-		for(var i = 0; i < toRemove.length; i++){
-			this.views.remove(toRemove[i]);
-		}
 
-		if(toRemoveAbove.length) {
-			setTimeout(()=>{
+
+			var offsetWidth = takeLeft(toRemoveAbove,1).reduce((acc, view) => acc + view.bounds().width, 0)
+
+			if(toRemoveAbove.length){
+				//console.log("above", toRemoveAbove)
+				for(var i = 0; i < toRemoveAbove.length; i++){
+					this.views.remove(toRemoveAbove[i]);
+					break;
+				}
+			} else {
+				if((toRemoveBelow.length)){
+					//console.log("below", toRemoveBelow)
+					for(var j = 0; j < toRemoveBelow.length; j++){
+						this.views.remove(toRemoveBelow[j]);
+					}
+				}
+			}
+			if(toRemoveAbove.length) {
 				if(this.settings.axis === "vertical") {
 					// @todo not implemented
 					//this.scrollTo(0, prevTop - bounds.height, true);
 				} else {
-					this.scrollTo(prevLeft - Math.floor(offsetWidth), 0, true);
+					this.scrollTo(prevLeft - offsetWidth, 0, true);
 				}
-			}, 0);
-
-		}
-
-
-
-
-		/*	var erased = true
-
-			// Erase all but last above
-			for (var i = 0; i < above.length - 1; i++) {
-				if(erased) continue;
-				this.erase(above[i], above);
-				erased = true;
 			}
+			this.isTriming = false;
+		}, 0);
 
-
-			// Erase all except first below
-			for (var j = 1; j < below.length; j++) {
-				if(erased) continue;
-				this.erase(below[j]);
-				erased = true;
-			}*/
 
 		task.resolve();
 		return task.promise;
@@ -408,7 +407,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			if(this.settings.axis === "vertical") {
 				this.scrollTo(0, prevTop - bounds.height, true);
 			} else {
-				this.scrollTo(prevLeft - Math.floor(bounds.width), 0, true);
+				this.scrollTo(prevLeft - bounds.width, 0, true);
 			}
 		}
 
@@ -478,6 +477,12 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	onScroll(){
+	/*	if(this.isScrollLocked){
+			this.scrollTo(this.scrollLeft, 0, true);
+			return;
+		}
+		if(this.isTriming) return;*/
+
 		let scrollTop;
 		let scrollLeft;
 		let dir = this.settings.direction === "rtl" ? -1 : 1;
@@ -521,30 +526,38 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	scrolled() {
-		if(this.isScrollLocked){
+	/*	if(this.isScrollLocked){
 			return;
 		}
 		this.isScrollLocked = true;
 		setTimeout(()=>{
 			this.isScrollLocked = false;
-		}, 100)
+		}, 100)*/
+		//this.isScrollLocked = true;
 
 		this.q.enqueue(function() {
 			this.check();
 		}.bind(this));
-
-		if(this.scrollLeft % this.settings.width >  20){
-			if(this.scrollLeft % this.settings.width > this.settings.width / 3){
-				this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width) + this.settings.width, 0, true);
+		//var screenWidth = this.settings.width;
+		//var  abnormalScrollOffset = this.scrollLeft % screenWidth
+		//var scrolledTo = this.scrollLeft;
+	/*	if(abnormalScrollOffset >  screenWidth / 10){
+		/!*	if(abnormalScrollOffset > screenWidth / 3){
+				this.scrollTo(this.scrollLeft - abnormalScrollOffset + screenWidth, 0, true);
+				//scrolledTo = this.scrollLeft - abnormalScrollOffset + screenWidth;
 			} else {
-				this.scrollTo(this.scrollLeft - (this.scrollLeft % this.settings.width) + this.settings.width, 0, true);
-			}
-		}
+				this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
+				//scrolledTo = this.scrollLeft - abnormalScrollOffset;
+			}*!/
+			//this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
+			this.scrollBy(-abnormalScrollOffset, 0, true);
+			scrolledTo = this.scrollLeft - abnormalScrollOffset;
+		}*/
 
 
 		this.emit(EVENTS.MANAGERS.SCROLL, {
 			top: this.scrollTop,
-			left: this.scrollLeft - (this.scrollLeft % this.settings.width)
+			left: this.container.scrollLeft
 		});
 
 		clearTimeout(this.afterScrolled);
