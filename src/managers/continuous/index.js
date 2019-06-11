@@ -5,7 +5,7 @@ import { EVENTS } from "../../utils/constants";
 import debounce from "lodash/debounce";
 import takeRight from "lodash/takeRight";
 import takeLeft from "lodash/take";
-import concat from "lodash/concat"
+import concat from "lodash/concat";
 
 class ContinuousViewManager extends DefaultViewManager {
 	constructor(options) {
@@ -172,6 +172,7 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	update(_offset){
+		console.log("update")
 		var container = this.bounds();
 		var views = this.views.all();
 		var viewsLength = views.length;
@@ -188,7 +189,7 @@ class ContinuousViewManager extends DefaultViewManager {
 			isVisible = this.isVisible(view, offset, offset, container);
 
 			if(isVisible === true) {
-				// console.log("visible " + view.index);
+				 console.log("visible " + view.index);
 
 				if (!view.displayed) {
 					let displayed = view.display(this.request)
@@ -204,12 +205,12 @@ class ContinuousViewManager extends DefaultViewManager {
 				visible.push(view);
 			} else {
 				this.q.enqueue(view.destroy.bind(view));
-				// console.log("hidden " + view.index);
+				 console.log("hidden " + view.index);
 
 				clearTimeout(this.trimTimeout);
 				this.trimTimeout = setTimeout(function(){
 					this.q.enqueue(this.trim.bind(this));
-				}.bind(this), 50);
+				}.bind(this), 3000);
 			}
 
 		}
@@ -291,6 +292,7 @@ class ContinuousViewManager extends DefaultViewManager {
 		});
 
 		if(newViews.length){
+			this.isScrollLocked = true;
 			return Promise.all(promises)
 				.then(() => {
 					if (this.layout.name === "pre-paginated" && this.layout.props.spread) {
@@ -299,8 +301,10 @@ class ContinuousViewManager extends DefaultViewManager {
 				})
 				.then(() => {
 					// Check to see if anything new is on screen after rendering
+					this.isScrollLocked = false
 					return this.update(delta);
 				}, (err) => {
+					this.isScrollLocked = false
 					return err;
 				});
 		} else {
@@ -316,8 +320,8 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	trim(){
-		//console.log("trim")
-		this.isTriming = true;
+		console.log("trim")
+		this.isScrollLocked = true;
 		var task = new defer();
 		var displayed = this.views.displayed();
 
@@ -339,8 +343,8 @@ class ContinuousViewManager extends DefaultViewManager {
 		);
 */
 
-		clearInterval(this.triming);
-		this.triming = setTimeout(()=>{
+		//clearInterval(this.triming);
+		//this.triming = setTimeout(()=>{
 
 			var prevTop;
 			var prevLeft;
@@ -355,17 +359,16 @@ class ContinuousViewManager extends DefaultViewManager {
 
 
 
-			var offsetWidth = takeLeft(toRemoveAbove,1).reduce((acc, view) => acc + view.bounds().width, 0)
+			var offsetWidth = toRemoveAbove.reduce((acc, view) => acc + view.bounds().width, 0)
 
 			if(toRemoveAbove.length){
-				//console.log("above", toRemoveAbove)
+				console.log("above", toRemoveAbove)
 				for(var i = 0; i < toRemoveAbove.length; i++){
 					this.views.remove(toRemoveAbove[i]);
-					break;
 				}
 			} else {
 				if((toRemoveBelow.length)){
-					//console.log("below", toRemoveBelow)
+					console.log("below", toRemoveBelow)
 					for(var j = 0; j < toRemoveBelow.length; j++){
 						this.views.remove(toRemoveBelow[j]);
 					}
@@ -376,12 +379,14 @@ class ContinuousViewManager extends DefaultViewManager {
 					// @todo not implemented
 					//this.scrollTo(0, prevTop - bounds.height, true);
 				} else {
+					this.isScrollLocked = false;
 					this.scrollTo(prevLeft - offsetWidth, 0, true);
 				}
 			}
-			this.isTriming = false;
-		}, 0);
 
+		//}, 2000);
+
+		this.isScrollLocked = false;
 
 		task.resolve();
 		return task.promise;
@@ -477,11 +482,10 @@ class ContinuousViewManager extends DefaultViewManager {
 	}
 
 	onScroll(){
-	/*	if(this.isScrollLocked){
+		if(this.isScrollLocked){
 			this.scrollTo(this.scrollLeft, 0, true);
 			return;
 		}
-		if(this.isTriming) return;*/
 
 		let scrollTop;
 		let scrollLeft;

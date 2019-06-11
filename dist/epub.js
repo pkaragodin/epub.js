@@ -14424,6 +14424,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "update",
 		value: function update(_offset) {
+			console.log("update");
 			var container = this.bounds();
 			var views = this.views.all();
 			var viewsLength = views.length;
@@ -14440,7 +14441,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 				isVisible = this.isVisible(view, offset, offset, container);
 
 				if (isVisible === true) {
-					// console.log("visible " + view.index);
+					console.log("visible " + view.index);
 
 					if (!view.displayed) {
 						var displayed = view.display(this.request).then(function (view) {
@@ -14455,12 +14456,12 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 					visible.push(view);
 				} else {
 					this.q.enqueue(view.destroy.bind(view));
-					// console.log("hidden " + view.index);
+					console.log("hidden " + view.index);
 
 					clearTimeout(this.trimTimeout);
 					this.trimTimeout = setTimeout(function () {
 						this.q.enqueue(this.trim.bind(this));
-					}.bind(this), 50);
+					}.bind(this), 3000);
 				}
 			}
 
@@ -14541,14 +14542,17 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			});
 
 			if (newViews.length) {
+				this.isScrollLocked = true;
 				return Promise.all(promises).then(function () {
 					if (_this6.layout.name === "pre-paginated" && _this6.layout.props.spread) {
 						return _this6.check();
 					}
 				}).then(function () {
 					// Check to see if anything new is on screen after rendering
+					_this6.isScrollLocked = false;
 					return _this6.update(delta);
 				}, function (err) {
+					_this6.isScrollLocked = false;
 					return err;
 				});
 			} else {
@@ -14563,10 +14567,8 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "trim",
 		value: function trim() {
-			var _this7 = this;
-
-			//console.log("trim")
-			this.isTriming = true;
+			console.log("trim");
+			this.isScrollLocked = true;
 			var task = new _core.defer();
 			var displayed = this.views.displayed();
 
@@ -14588,48 +14590,50 @@ var ContinuousViewManager = function (_DefaultViewManager) {
    	);
    */
 
-			clearInterval(this.triming);
-			this.triming = setTimeout(function () {
+			//clearInterval(this.triming);
+			//this.triming = setTimeout(()=>{
 
-				var prevTop;
-				var prevLeft;
+			var prevTop;
+			var prevLeft;
 
-				if (!_this7.settings.fullsize) {
-					prevTop = _this7.container.scrollTop;
-					prevLeft = _this7.container.scrollLeft;
-				} else {
-					prevTop = window.scrollY;
-					prevLeft = window.scrollX;
-				}
+			if (!this.settings.fullsize) {
+				prevTop = this.container.scrollTop;
+				prevLeft = this.container.scrollLeft;
+			} else {
+				prevTop = window.scrollY;
+				prevLeft = window.scrollX;
+			}
 
-				var offsetWidth = (0, _take2.default)(toRemoveAbove, 1).reduce(function (acc, view) {
-					return acc + view.bounds().width;
-				}, 0);
-
-				if (toRemoveAbove.length) {
-					//console.log("above", toRemoveAbove)
-					for (var i = 0; i < toRemoveAbove.length; i++) {
-						_this7.views.remove(toRemoveAbove[i]);
-						break;
-					}
-				} else {
-					if (toRemoveBelow.length) {
-						//console.log("below", toRemoveBelow)
-						for (var j = 0; j < toRemoveBelow.length; j++) {
-							_this7.views.remove(toRemoveBelow[j]);
-						}
-					}
-				}
-				if (toRemoveAbove.length) {
-					if (_this7.settings.axis === "vertical") {
-						// @todo not implemented
-						//this.scrollTo(0, prevTop - bounds.height, true);
-					} else {
-						_this7.scrollTo(prevLeft - offsetWidth, 0, true);
-					}
-				}
-				_this7.isTriming = false;
+			var offsetWidth = toRemoveAbove.reduce(function (acc, view) {
+				return acc + view.bounds().width;
 			}, 0);
+
+			if (toRemoveAbove.length) {
+				console.log("above", toRemoveAbove);
+				for (var i = 0; i < toRemoveAbove.length; i++) {
+					this.views.remove(toRemoveAbove[i]);
+				}
+			} else {
+				if (toRemoveBelow.length) {
+					console.log("below", toRemoveBelow);
+					for (var j = 0; j < toRemoveBelow.length; j++) {
+						this.views.remove(toRemoveBelow[j]);
+					}
+				}
+			}
+			if (toRemoveAbove.length) {
+				if (this.settings.axis === "vertical") {
+					// @todo not implemented
+					//this.scrollTo(0, prevTop - bounds.height, true);
+				} else {
+					this.isScrollLocked = false;
+					this.scrollTo(prevLeft - offsetWidth, 0, true);
+				}
+			}
+
+			//}, 2000);
+
+			this.isScrollLocked = false;
 
 			task.resolve();
 			return task.promise;
@@ -14729,11 +14733,10 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "onScroll",
 		value: function onScroll() {
-			/*	if(this.isScrollLocked){
-   		this.scrollTo(this.scrollLeft, 0, true);
-   		return;
-   	}
-   	if(this.isTriming) return;*/
+			if (this.isScrollLocked) {
+				this.scrollTo(this.scrollLeft, 0, true);
+				return;
+			}
 
 			var scrollTop = void 0;
 			var scrollLeft = void 0;
