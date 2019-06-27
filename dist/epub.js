@@ -8344,6 +8344,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
+var isDebug = false;
+
 var DefaultViewManager = function () {
 	function DefaultViewManager(options) {
 		_classCallCheck(this, DefaultViewManager);
@@ -9101,14 +9103,15 @@ var DefaultViewManager = function () {
 	}, {
 		key: "scrollTo",
 		value: function scrollTo(_x, y, silent) {
+			if (this.isScrollLocked) return;
 			if (silent) {
 				this.ignore = true;
 			}
 
 			// может не дотягивать как слева так и справа
 			var abnormalOffset = _x % this.settings.width;
-			console.log("abnormalOffset", abnormalOffset);
-			var x = _x - abnormalOffset;
+			isDebug && console.log("abnormalOffset", abnormalOffset);
+			var x = _x - this.settings.snap ? 0 : abnormalOffset; //+ abnormalOffset > 150? this.settings.width: 0 ;
 
 			if (!this.settings.fullsize) {
 				this.container.scrollLeft = x;
@@ -11592,9 +11595,10 @@ var Rendition = function () {
 		value: function _display(target) {
 			var _this = this;
 
-			if (!this.book) {
+			if (!this.book || this.startDisplaying) {
 				return;
 			}
+			this.startDisplaying = true;
 			var isCfiString = this.epubcfi.isCfiString(target);
 			var displaying = new _core.defer();
 			var displayed = displaying.promise;
@@ -11627,6 +11631,7 @@ var Rendition = function () {
      */
 				_this.emit(_constants.EVENTS.RENDITION.DISPLAYED, section);
 				_this.reportLocation();
+				_this.startDisplaying = false;
 			}, function (err) {
 				/**
      * Emit that has been an error displaying
@@ -11634,6 +11639,7 @@ var Rendition = function () {
      * @param {Section} section
      * @memberof Rendition
      */
+				_this.startDisplaying = false;
 				_this.emit(_constants.EVENTS.RENDITION.DISPLAY_ERROR, err);
 			});
 
@@ -14236,6 +14242,8 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+var isDebug = false;
+
 var ContinuousViewManager = function (_DefaultViewManager) {
 	_inherits(ContinuousViewManager, _DefaultViewManager);
 
@@ -14424,7 +14432,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "update",
 		value: function update(_offset) {
-			console.log("update");
+			isDebug && console.log("update");
 			var container = this.bounds();
 			var views = this.views.all();
 			var viewsLength = views.length;
@@ -14441,7 +14449,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 				isVisible = this.isVisible(view, offset, offset, container);
 
 				if (isVisible === true) {
-					console.log("visible " + view.index);
+					//console.log("visible " + view.index);
 
 					if (!view.displayed) {
 						var displayed = view.display(this.request).then(function (view) {
@@ -14456,7 +14464,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 					visible.push(view);
 				} else {
 					this.q.enqueue(view.destroy.bind(view));
-					console.log("hidden " + view.index);
+					//console.log("hidden " + view.index);
 
 					clearTimeout(this.trimTimeout);
 					this.trimTimeout = setTimeout(function () {
@@ -14479,6 +14487,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 		value: function check(_offsetLeft, _offsetTop) {
 			var _this6 = this;
 
+			isDebug && console.log("check", _offsetLeft);
 			var checking = new _core.defer();
 			this.isChecking = true;
 			var newViews = [];
@@ -14560,6 +14569,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 				this.q.enqueue(function () {
 					this.update();
 				}.bind(this));
+
 				checking.resolve(false);
 				return checking.promise;
 			}
@@ -14567,7 +14577,7 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 	}, {
 		key: "trim",
 		value: function trim() {
-			console.log("trim");
+			isDebug && console.log("trim");
 			this.isScrollLocked = true;
 			var task = new _core.defer();
 			var displayed = this.views.displayed();
@@ -14585,9 +14595,9 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			var toRemoveBelow = (0, _takeRight2.default)(below, Math.max(below.length - 2, 0));
 
 			/*	var toRemove = concat(
-   		toRemoveAbove,
-   		toRemoveBelow
-   	);
+   	toRemoveAbove,
+   	toRemoveBelow
+   );
    */
 
 			//clearInterval(this.triming);
@@ -14609,13 +14619,13 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			}, 0);
 
 			if (toRemoveAbove.length) {
-				console.log("above", toRemoveAbove);
+				isDebug && console.log("above", toRemoveAbove);
 				for (var i = 0; i < toRemoveAbove.length; i++) {
 					this.views.remove(toRemoveAbove[i]);
 				}
 			} else {
 				if (toRemoveBelow.length) {
-					console.log("below", toRemoveBelow);
+					isDebug && console.log("below", toRemoveBelow);
 					for (var j = 0; j < toRemoveBelow.length; j++) {
 						this.views.remove(toRemoveBelow[j]);
 					}
@@ -14796,17 +14806,17 @@ var ContinuousViewManager = function (_DefaultViewManager) {
 			//var  abnormalScrollOffset = this.scrollLeft % screenWidth
 			//var scrolledTo = this.scrollLeft;
 			/*	if(abnormalScrollOffset >  screenWidth / 10){
-   	/!*	if(abnormalScrollOffset > screenWidth / 3){
-   			this.scrollTo(this.scrollLeft - abnormalScrollOffset + screenWidth, 0, true);
-   			//scrolledTo = this.scrollLeft - abnormalScrollOffset + screenWidth;
-   		} else {
-   			this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
-   			//scrolledTo = this.scrollLeft - abnormalScrollOffset;
-   		}*!/
-   		//this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
-   		this.scrollBy(-abnormalScrollOffset, 0, true);
-   		scrolledTo = this.scrollLeft - abnormalScrollOffset;
-   	}*/
+   /!*	if(abnormalScrollOffset > screenWidth / 3){
+   		this.scrollTo(this.scrollLeft - abnormalScrollOffset + screenWidth, 0, true);
+   		//scrolledTo = this.scrollLeft - abnormalScrollOffset + screenWidth;
+   	} else {
+   		this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
+   		//scrolledTo = this.scrollLeft - abnormalScrollOffset;
+   	}*!/
+   	//this.scrollTo(this.scrollLeft - abnormalScrollOffset, 0, true);
+   	this.scrollBy(-abnormalScrollOffset, 0, true);
+   	scrolledTo = this.scrollLeft - abnormalScrollOffset;
+   }*/
 
 			this.emit(_constants.EVENTS.MANAGERS.SCROLL, {
 				top: this.scrollTop,

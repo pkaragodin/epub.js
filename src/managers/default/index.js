@@ -6,6 +6,8 @@ import Stage from "../helpers/stage";
 import Views from "../helpers/views";
 import { EVENTS } from "../../utils/constants";
 
+const isDebug = false
+
 class DefaultViewManager {
 	constructor(options) {
 
@@ -752,14 +754,15 @@ class DefaultViewManager {
 	}
 
 	scrollTo(_x, y, silent){
+		if(this.isScrollLocked) return;
 		if(silent) {
 			this.ignore = true;
 		}
 
 		// может не дотягивать как слева так и справа
 		var abnormalOffset = (_x % this.settings.width)
-		console.log("abnormalOffset", abnormalOffset)
-		var x = _x - abnormalOffset;
+		isDebug && console.log("abnormalOffset", abnormalOffset)
+		var x = _x - this.settings.snap? 0:abnormalOffset; //+ abnormalOffset > 150? this.settings.width: 0 ;
 
 		if(!this.settings.fullsize) {
 			this.container.scrollLeft = x;
